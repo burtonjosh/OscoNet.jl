@@ -14,7 +14,11 @@ makedocs(;
         edit_link = "main",
         assets = String[],
     ),
-    pages = ["Home" => "index.md"],
+    pages = [
+        "Home" => "index.md",
+        "Examples" => ["Tutorial" => "examples/tutorial.md", "Application to real data" => "examples/real-data.md"],
+        "Library" => ["Public" => "lib/public.md", "Internals" => "lib/internals.md"]
+        ],
 )
 
 deploydocs(; repo = "github.com/burtonjosh/OscoNet.jl", devbranch = "main")

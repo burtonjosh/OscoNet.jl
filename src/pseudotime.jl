@@ -51,3 +51,71 @@ function get_circle(dataC)
     residu_2 = sum((Ri_2 .- R_2).^2)
     return center_2, R_2, residu_2
 end
+
+"""
+peak time function
+"""
+function get_peak_time(data, cloneid, pt; baseCycleTime=nothing)
+    # data[in(a.CloneID).(data.X0),:][:,2:end])
+    d = vec(Array(data[in(cloneid).(data.X0),:][!,2:end]))
+    # d = data.loc[cloneid, :].values.flatten()
+    if baseCycleTime == nothing
+        baseCycle = d
+    else
+        baseCycle = d[baseCycleTime[1]:baseCycleTime[2]]
+    end
+    return pt[argmax(baseCycle)]
+end
+
+"""
+evaluate roughness of pseudotime
+This metric measures the smoothness of the gene expression profile by looking at the differences
+of consecutive measurements.
+Smaller values indicate a smoother response. 
+"""
+function calc_roughness(x, pt)
+    i=sortperm(pt)
+    x = x[:, i]
+    N = size(x)[2]
+    S = std(x,dims=2)
+    test = (x[:,1:(N-1)] - x[:,2:N]).^2
+    return sqrt.((1 .+ sum((x[:,1:(N-1)] - x[:,2:N]).^2, dims=2) ) ./ (N-1)) ./ S
+end
+
+"""
+metrics function
+"""
+function calculate_metrics(data, commData, cloneidlistEval, pt, ptTruePeriod)
+    # Measure fit
+    peakTimes = zeros(length(cloneidlistEval))
+    roughness = zeros(length(cloneidlistEval))
+
+    peakTimes_true = zeros(length(cloneidlistEval))
+    roughness_true = zeros(length(cloneidlistEval))
+
+    for (ic, c) in enumerate(cloneidlistEval)
+        a = commData[commData.CloneID .== c,:]
+        peakTimes[ic] = get_peak_time(data, a.CloneID, pt)
+        peakTimes_true[ic] = get_peak_time(data, a.CloneID, ptTruePeriod)
+        roughness[ic] = calc_roughness(
+            vec(Array(data[in(a.CloneID).(data.X0),:][:,2:end]))',
+            pt
+        )[1]
+        roughness_true[ic] = calc_roughness(
+            vec(Array(data[in(a.CloneID).(data.X0),:][:,2:end]))',
+            ptTruePeriod
+        )[1]
+    end
+    
+    # KS test to uniformity
+    ptKS = HypothesisTests.ksstats(pt,Uniform())[2]
+
+    pseudoCorr = corspearman(pt, ptTruePeriod)
+    peakCorr = corspearman(peakTimes, peakTimes_true)
+
+    println("peak R=$peakCorr")
+    println("pseudotime: true roughness = $(median(roughness .- median(roughness_true)))")
+    println("corr pseudotime = $(pseudoCorr), ks=$ptKS")
+
+    return peakTimes, peakTimes_true, roughness, ptKS, pseudoCorr, peakCorr
+end
