@@ -70,14 +70,14 @@ function qvalue_estimate(pvalues; m=nothing, verbose=false, pi0=nothing)
         # println(pi0)
 
         if verbose
-            println("qvalues pi0=(round($pi0; digits=3)), estimated proportion of null features ")
+            println("qvalues pi0=",round(pi0; digits=3),", estimated proportion of null features ")
         end
 
         if pi0 > 1
             pi0 = 1.0
 
             if verbose
-                println("got pi0 > 1 (round($pi0; digits=3)) while estimating qvalues, setting it to 1")
+                println("got pi0 > 1 (", round(pi0; digits=3),") while estimating qvalues, setting it to 1")
             end
 
         end

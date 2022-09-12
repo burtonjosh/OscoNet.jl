@@ -1,35 +1,20 @@
 """
 Generate synthetic data. Reproduced from the original [Oscope paper](https://www.nature.com/articles/nmeth.3549)
 
-Included below is the original description from the supplementary material of that paper:
-
-## Sim I: Oscope paper supplementary
-1000 genes and 100 cells.  90 out of the 1000 genes were  simulated  as  oscillators.
-The 90 oscillators were simulated in 3 frequency groups, each group contains 30 genes.
-Group 1 and 3 follow the same order, while genes in group 2 follow another order.
-
-The relative speeds of the 3 groups are proportional to 2:3:6.
-Within each frequency group, genes were further simulated with strong and weak signals.
-Half of the oscillatory genes were simulated as strong oscillators with `σ_g` = `σ_str`.
-The other half were simulated as weak oscillators with `σ_g` = `2σ_str`.
-Starting Ψ `Ψ_g` varies in different genes within a frequency group.
-The remaining genes except the oscillators are called noise genes.
-Noise genes were simulated as random Gaussian noise. The noise level was adjusted to
-be comparable to the average noise signal among all oscillators.
-The `σ_str` varies from 0.05 to 0.4 in 5 steps.
+This function can be used to simulate fake gene expression data with which to test the other functions.
 
 # Arguments
 
-- `half_group::Int=15`: Half the size of each gene group. For example if `half_group=3`, each group will have 6 co-oscillating genes, 3 of which 
+- `half_group::Int=10`: Half the size of each gene group. For example if `half_group=3`, each group will have 6 co-oscillating genes, 3 of which 
 will be strong oscillators and 3 weak (double the noise)
 
-- `n_genes::Int=1000`: Total number of genes
+- `n_genes::Int=80`: Total number of genes
 
-- `n_cells::Int=100`: Total number of cells
+- `n_cells::Int=1000`: Total number of cells
 
 - `noise_level::Int=1`: Noise level index (1 to 6)
 
-- `n_groups::Int=3`: Number of groups
+- `n_groups::Int=2`: Number of groups
 
 # Returns
 
@@ -40,11 +25,11 @@ will be strong oscillators and 3 weak (double the noise)
 - `ω::Vector{<:AbstractFloat}`: Vector of angular speeds for each gene
 """
 function simulate_data(;
-    half_group::Int = 15,
-    n_genes::Int = 1000,
-    n_cells::Int = 100,
+    half_group::Int = 10,
+    n_genes::Int = 80,
+    n_cells::Int = 1000,
     noise_level::Int = 1,
-    n_groups::Int = 3,
+    n_groups::Int = 2,
 )
     @assert n_groups <= 3
 
@@ -60,7 +45,7 @@ function simulate_data(;
 
     # genes per weak/strong oscillatory group
     # Group 1
-    cell_names = ["C$i" for i = 0:n_cells-1]
+    # cell_names = ["C$i" for i = 0:n_cells-1] # TODO make use of cell names - dataframe?
     gene_names = vcat(["G1S0$i" for i = 0:half_group-1], ["G1W0$i" for i = half_group:2half_group-1])
 
     Ψ_g = zeros(n_genes)
@@ -128,17 +113,7 @@ function simulate_data(;
         data[w, :] = maximum([3 / 2 * σ_str, 1]) * randn(n_cells)
     end
 
-    @assert !any(isnan, data)
-    @assert length(gene_names) == n_genes
-    @assert length(cell_names) == n_cells
-
-    return data, Ψ_g, ω  # return GXN matrix
-
-    # df = DataFrame(data, cell_names)
-    # df[!,"gene_names"] = gene_names
-    # return groupby(df,:gene_names), Ψ_g, ω
-    # return df, Ψ_g, ω  # return GXN matrix
-
+    return data, Ψ_g, ω
 end
 
 

@@ -1,7 +1,15 @@
 """
-:param data: gene data
-:param n_neighbors: parameter for SpectralEmbedding
-:return: pseudotime and 2-D latent space
+# Arguments
+
+- `data`
+
+- `n_neighbors`
+
+# Returns
+
+- `pt`
+
+- `X_init`
 """
 function estimate_pseudotime_using_tsne(
     data
@@ -13,9 +21,9 @@ function estimate_pseudotime_using_tsne(
     # Fit circle
     center, _, _ = get_circle(X_init)
     X_init = X_init .- center  # remove mean
-    ptRadians = atan.(X_init[1, :], X_init[2, :])
+    pt_radians = atan.(X_init[1, :], X_init[2, :])
 
-    pt = (ptRadians .- minimum(ptRadians)) ./ (maximum(ptRadians) - minimum(ptRadians))  # convert to [0, 1]
+    pt = (pt_radians .- minimum(pt_radians)) ./ (maximum(pt_radians) - minimum(pt_radians))  # convert to [0, 1]
     return pt, X_init
 end
 
@@ -55,16 +63,14 @@ end
 """
 peak time function
 """
-function get_peak_time(data, cloneid, pt; baseCycleTime=nothing)
-    # data[in(a.CloneID).(data.X0),:][:,2:end])
+function get_peak_time(data, cloneid, pt; base_cycle_time=nothing)
     d = vec(Array(data[in(cloneid).(data.X0),:][!,2:end]))
-    # d = data.loc[cloneid, :].values.flatten()
-    if baseCycleTime == nothing
-        baseCycle = d
+    if base_cycle_time == nothing
+        base_cycle = d
     else
-        baseCycle = d[baseCycleTime[1]:baseCycleTime[2]]
+        base_cycle = d[base_cycle_time[1]:base_cycle_time[2]]
     end
-    return pt[argmax(baseCycle)]
+    return pt[argmax(base_cycle)]
 end
 
 """
@@ -78,7 +84,6 @@ function calc_roughness(x, pt)
     x = x[:, i]
     N = size(x)[2]
     S = std(x,dims=2)
-    test = (x[:,1:(N-1)] - x[:,2:N]).^2
     return sqrt.((1 .+ sum((x[:,1:(N-1)] - x[:,2:N]).^2, dims=2) ) ./ (N-1)) ./ S
 end
 
