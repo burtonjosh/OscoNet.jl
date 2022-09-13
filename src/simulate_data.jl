@@ -5,16 +5,16 @@ This function can be used to simulate fake gene expression data with which to te
 
 # Arguments
 
-- `half_group::Int=10`: Half the size of each gene group. For example if `half_group=3`, each group will have 6 co-oscillating genes, 3 of which 
+- `half_group::Int=5`: Half the size of each gene group. For example if `half_group=3`, each group will have 6 co-oscillating genes, 3 of which 
 will be strong oscillators and 3 weak (double the noise)
 
-- `n_genes::Int=80`: Total number of genes
+- `n_genes::Int=20`: Total number of genes
 
 - `n_cells::Int=1000`: Total number of cells
 
 - `noise_level::Int=1`: Noise level index (1 to 6)
 
-- `n_groups::Int=2`: Number of groups
+- `n_groups::Int=1`: Number of groups
 
 # Returns
 
@@ -25,13 +25,14 @@ will be strong oscillators and 3 weak (double the noise)
 - `ω::Vector{<:AbstractFloat}`: Vector of angular speeds for each gene
 """
 function simulate_data(;
-    half_group::Int = 10,
-    n_genes::Int = 80,
+    half_group::Int = 5,
+    n_genes::Int = 20,
     n_cells::Int = 1000,
     noise_level::Int = 1,
-    n_groups::Int = 2,
+    n_groups::Int = 1,
 )
     @assert n_groups <= 3
+    @assert 2 * half_group * n_groups < n_genes
 
     # Construct oscillatory groups
     σ_str_level = [0.05, 0.1, 0.2, 0.3, 0.4, 0.6]
@@ -46,7 +47,8 @@ function simulate_data(;
     # genes per weak/strong oscillatory group
     # Group 1
     # cell_names = ["C$i" for i = 0:n_cells-1] # TODO make use of cell names - dataframe?
-    gene_names = vcat(["G1S0$i" for i = 0:half_group-1], ["G1W0$i" for i = half_group:2half_group-1])
+    gene_names =
+        vcat(["G1S0$i" for i = 0:half_group-1], ["G1W0$i" for i = half_group:2half_group-1])
 
     Ψ_g = zeros(n_genes)
     ω = zeros(n_genes)
@@ -67,8 +69,11 @@ function simulate_data(;
     end
 
     if n_groups >= 2
-        gene_names =
-            vcat(gene_names, ["G2S0$i" for i = 2half_group:3half_group-1], ["G2W0$i" for i = 3half_group:4half_group-1])
+        gene_names = vcat(
+            gene_names,
+            ["G2S0$i" for i = 2half_group:3half_group-1],
+            ["G2W0$i" for i = 3half_group:4half_group-1],
+        )
         white_noise_index = 4half_group + 1
 
         for i = (2half_group+1):3half_group  # strong oscillators
@@ -87,8 +92,11 @@ function simulate_data(;
 
     if n_groups >= 3
         # Group 3
-        gene_names =
-            vcat(gene_names, ["G3S0$i" for i = 3half_group:4half_group-1], ["G3W0$i" for i = 4half_group:5half_group-1])
+        gene_names = vcat(
+            gene_names,
+            ["G3S0$i" for i = 3half_group:4half_group-1],
+            ["G3W0$i" for i = 4half_group:5half_group-1],
+        )
         white_noise_index = 6half_group + 1
 
         for i in (4half_group+1:5half_group)  # strong oscillators
@@ -104,7 +112,7 @@ function simulate_data(;
             data[i, :] = sin.(6t1 .+ starting_Ψ) .+ 2σ_str * randn(n_cells)
         end
     end
-    
+
     # white noise genes
     gene_names = vcat(gene_names, ["R$i" for i = white_noise_index:n_genes])
     for w = white_noise_index:n_genes  # use i index from above where it stopped
@@ -131,7 +139,8 @@ Construct the ground truth adjacency matrix for a given numer of genes and
 
 - `adj_mat::Matrix{Bool}`: Boolean matrix which is 1 if genes co-oscillate, and 0 otherwise
 """
-function true_adj_matrix(n_genes::Int, ω::Vector{<:AbstractFloat})
+function true_adj_matrix(ω::Vector{<:AbstractFloat})
+    n_genes = length(ω)
     adj_mat = fill(false, n_genes, n_genes)
     @views @inbounds begin
         for i = 1:n_genes

@@ -12,11 +12,7 @@ sinusoidal expression profiles, except for a phase shift Ψ.
 
 - `d::AbstractFloat`: Distance between the two genes for a given Ψ
 """
-function cooscillation_distance(
-    X,
-    Y,
-    cosΨ::AbstractFloat,
-)
+function cooscillation_distance(X, Y, cosΨ::AbstractFloat)
     sum(@. (X^2 + Y^2 - 2cosΨ * X * Y - 1 + cosΨ^2)^2)
 end
 
@@ -36,6 +32,6 @@ and the value of Ψ that minimises it.
 - `minimiser::AbstractFloat`: Value of Ψ that minimises the distance
 """
 function find_minimum_distance(X, Y)
-    res = optimize(x->cooscillation_distance(X, Y, x), -1.0, 1.0)
+    res = optimize(x -> cooscillation_distance(X, Y, x), -1.0, 1.0)
     return Optim.minimum(res), acos(Optim.minimizer(res))
 end
