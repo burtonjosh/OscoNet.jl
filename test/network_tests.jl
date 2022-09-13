@@ -1,4 +1,4 @@
-using OscoNet
+using OscoNet, Random
 
 @testset "Construct edge network" begin
     Random.seed!(1234)
