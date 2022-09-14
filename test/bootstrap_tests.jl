@@ -12,7 +12,7 @@ using OscoNet, Random, LinearAlgebra
     @test size(qvalues) == (20, 20)
     @test size(cost) == (20, 20)
 
-    @test sum(adjacency_matrix) == 90
+    @test isapprox(sum(adjacency_matrix), 90; atol=3)
 end
 
 @testset "Ψ for each gene pair" begin

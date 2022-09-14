@@ -78,8 +78,6 @@ function qvalue_estimate(pvalues; n_tests = nothing, π₀ = nothing)
         # println(tck(lambdas[end]))
         # # println(tck(1.0))
         # π₀ = tck(lambdas[end])
-        # println(π₀)
-
         if π₀ > 1
             π₀ = 1.0
         end
@@ -134,7 +132,7 @@ function get_metrics_for_different_qvalue_thresholds(qvalues, adj_matrix_true, �
 
     for (α_index, α) in enumerate(α_values)
         adj_matrix_qvalue = zeros(n_genes, n_genes)
-        adj_matrix_qvalue[qvalues.<α] .= 1
+        adj_matrix_qvalue[qvalues.<=α] .= 1
 
         # calculate error rates on upper triangle only using `vec_triu_loop` to avoid diagonal and duplicating pairs
         true_positive_rate[α_index],
