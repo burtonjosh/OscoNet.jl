@@ -7,78 +7,83 @@
 
 # Returns
 
-- `pt`
+- `pseudotime`
 
-- `X_init`
+- `data_tsne_scaled`
 """
 function estimate_pseudotime_using_tsne(data)
-    X_init_embed = predict(fit(TSNE, data))
-    X_init = scale_data(X_init_embed)  # zero mean, unit variance
-
+    data_tsne = predict(fit(TSNE, data))
+    data_tsne_scaled = scale_data(data_tsne)
 
     # Fit circle
-    center, _, _ = get_circle(X_init)
-    X_init = X_init .- center  # remove mean
-    pt_radians = atan.(X_init[1, :], X_init[2, :])
-
-    pt = (pt_radians .- minimum(pt_radians)) ./ (maximum(pt_radians) - minimum(pt_radians))  # convert to [0, 1]
-    return pt, X_init
+    centre = first(get_circle(data_tsne_scaled))
+    data_tsne_scaled = data_tsne_scaled .- centre
+    pseudotime_radians = atan.(data_tsne_scaled[1, :], data_tsne_scaled[2, :])
+    
+    # convert to [0, 1]
+    pseudotime = (pseudotime_radians .- minimum(pseudotime_radians)) ./ (maximum(pseudotime_radians) - minimum(pseudotime_radians))
+    return pseudotime, data_tsne_scaled
 end
 
+"""
+Z-Score normalisation of a matrix of size (n_genes x n_cells), applied row-wise
+"""
 function scale_data(Y)
     μ = mean(Y, dims = 2)
     σ = std(Y, dims = 2)
     return (Y .- μ) ./ σ
 end
 
-""" calculate the distance of each 2D points from the center (xc, yc) """
-function calc_R(xc, yc, dataC)
-    return sqrt.((dataC[1, :] .- xc) .^ 2 .+ (dataC[2, :] .- yc) .^ 2)
-end
-
-""" calculate the algebraic distance between the data points and the mean circle centered at c=(xc, yc) """
-function f_2(c, dataC)
-    Ri = calc_R(c[1], c[2], dataC)
-    return sum((Ri .- mean(Ri)) .^ 2)
+"""
+Calculate the distance of a set of 2D points from the centre (xc, yc) of a circle
+"""
+function distance_from_centre(data, centre)
+    return sqrt.((data[1, :] .- centre[1]) .^ 2 .+ (data[2, :] .- centre[2]) .^ 2)
 end
 
 """
-Calculate circle using lease circles
+Helper function for optimisation. Calculate the sum of the squared distances
+between a set of data points and the circle centred at c=(xc, yc)
 """
-function get_circle(dataC)
-    @assert size(dataC)[1] == 2 "Number of rows must be 2"
-
-    res = optimize(x -> f_2(x, dataC), mean(dataC, dims = 2), BFGS(); autodiff = :forward) # TODO
-    # res = optimize(x->f_2(x,dataC), mean(dataC,dims=2))
-    center_2 = Optim.minimizer(res)
-
-    Ri_2 = calc_R(center_2..., dataC)
-    R_2 = mean(Ri_2)
-    residu_2 = sum((Ri_2 .- R_2) .^ 2)
-    return center_2, R_2, residu_2
+function f_2(data, centre)
+    radius = distance_from_centre(data, centre)
+    return sum((radius .- mean(radius)) .^ 2)
 end
 
 """
-peak time function
+Calculate mean circle
 """
-function get_peak_time(data, cloneid, pt; base_cycle_time = nothing)
-    d = vec(Array(data[in(cloneid).(data.X0), :][!, 2:end]))
+function get_circle(data)
+    @assert size(data)[1] == 2 "Number of rows must be 2"
+
+    res = optimize(x -> f_2(data, x), mean(data, dims = 2), BFGS(); autodiff = :forward)
+    centre = Optim.minimizer(res)
+
+    radius = distance_from_centre(data, centre)
+    mean_radius = mean(radius)
+    residual = sum((radius .- mean_radius) .^ 2)
+    return centre, mean_radius, residual
+end
+
+"""
+Calculate time of peak expression for a specific gene given pseudotime
+"""
+function get_peak_time(data, clone_id, pseudotime; base_cycle_time = nothing)
+    d = vec(Array(data[in(clone_id).(data.X0), :][!, 2:end]))
     if base_cycle_time == nothing
         base_cycle = d
     else
         base_cycle = d[base_cycle_time[1]:base_cycle_time[2]]
     end
-    return pt[argmax(base_cycle)]
+    return pseudotime[argmax(base_cycle)]
 end
 
 """
-evaluate roughness of pseudotime
-This metric measures the smoothness of the gene expression profile by looking at the differences
-of consecutive measurements.
-Smaller values indicate a smoother response. 
+Evaluate roughness of pseudotime. This metric measures the smoothness of the gene expression profile
+by looking at the differences between consecutive measurements. Smaller values indicate a smoother response. 
 """
-function calc_roughness(x, pt)
-    i = sortperm(pt)
+function calc_roughness(x, pseudotime)
+    i = sortperm(pseudotime)
     x = x[:, i]
     N = size(x)[2]
     S = std(x, dims = 2)
@@ -86,32 +91,32 @@ function calc_roughness(x, pt)
 end
 
 """
-metrics function
+Calculate various metrics
 """
-function calculate_metrics(data, commData, cloneidlistEval, pt, ptTruePeriod)
+function calculate_metrics(data, commData, clone_idlistEval, pseudotime, realtime)
     # Measure fit
-    peakTimes = zeros(length(cloneidlistEval))
-    roughness = zeros(length(cloneidlistEval))
+    peakTimes = zeros(length(clone_idlistEval))
+    roughness = zeros(length(clone_idlistEval))
 
-    peakTimes_true = zeros(length(cloneidlistEval))
-    roughness_true = zeros(length(cloneidlistEval))
+    peakTimes_true = zeros(length(clone_idlistEval))
+    roughness_true = zeros(length(clone_idlistEval))
 
-    for (ic, c) in enumerate(cloneidlistEval)
-        a = commData[commData.CloneID.==c, :]
-        peakTimes[ic] = get_peak_time(data, a.CloneID, pt)
-        peakTimes_true[ic] = get_peak_time(data, a.CloneID, ptTruePeriod)
+    for (ic, c) in enumerate(clone_idlistEval)
+        a = commData[commData.clone_id.==c, :]
+        peakTimes[ic] = get_peak_time(data, a.clone_id, pseudotime)
+        peakTimes_true[ic] = get_peak_time(data, a.clone_id, realtime)
         roughness[ic] =
-            calc_roughness(vec(Array(data[in(a.CloneID).(data.X0), :][:, 2:end]))', pt)[1]
+            calc_roughness(vec(Array(data[in(a.clone_id).(data.X0), :][:, 2:end]))', pseudotime)[1]
         roughness_true[ic] = calc_roughness(
-            vec(Array(data[in(a.CloneID).(data.X0), :][:, 2:end]))',
-            ptTruePeriod,
+            vec(Array(data[in(a.clone_id).(data.X0), :][:, 2:end]))',
+            realtime,
         )[1]
     end
 
     # KS test to uniformity
-    ptKS = HypothesisTests.ksstats(pt, Uniform())[2]
+    ptKS = HypothesisTests.ksstats(pseudotime, Uniform())[2]
 
-    pseudoCorr = corspearman(pt, ptTruePeriod)
+    pseudoCorr = corspearman(pseudotime, realtime)
     peakCorr = corspearman(peakTimes, peakTimes_true)
 
     println("peak R=$peakCorr")

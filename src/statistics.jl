@@ -1,14 +1,18 @@
 """
-Get pvalues from bootstrap
+Get p-values from the bootstrap hypothesis test
 
 # Arguments
 
-- `cost_unpermuted`: G X G - only upper triangular used
-- `cost_permuted`: G X G X n permutations
+- `cost_unpermuted`: A matrix of size (n_genes X n_genes) whose upper triangular `(x,y)`-th element defines the
+distance between gene `x` and gene `y`
 
-#Returns
+- `cost_permuted`: An array of size (n_genes X n_genes X n_permutations) whose upper triangular `(x,y,n)`-th element
+defines the distance between gene `x` and the `n`-th permutation of gene `y`
 
-- `pvalues`
+# Returns
+
+- `pvalues`: A matrix of size (n_genes X n_genes)
+
 """
 function get_pvalues(cost_unpermuted, cost_permuted)
 
@@ -29,139 +33,156 @@ function get_pvalues(cost_unpermuted, cost_permuted)
 end
 
 """
-Estimates qvalues from pvalues
+Estimates q-values from p-values, see [https://github.com/nfusi/qvalue](https://github.com/nfusi/qvalue)
 
 # Arguments
 
-- `pvalues`: 
+- `pvalues`: A vector of p-values
 
-- `m`: number of tests. If not specified m = length(pvalues)
+- `n_tests`: number of tests. If not specified n_tests = length(pvalues)
 
-- `verbose::Bool`: print verbose messages (default is false)
+- `π₀`: Estimate of the proportion of features that are truly null. If not specified,
+it's estimated as suggested in Storey and Tibshirani, 2003.
 
-- `pi0`: if None, it's estimated as suggested in Storey and Tibshirani, 2003.
+# Returns
+
+- `qvalues`
+
+- `π₀`
 """
-function qvalue_estimate(pvalues; m = nothing, verbose = false, pi0 = nothing)
+function qvalue_estimate(pvalues; n_tests = nothing, π₀ = nothing)
 
     @assert minimum(pvalues) >= 0 && maximum(pvalues) <= 1 "p-values should be between 0 and 1"
 
-    if m == nothing
-        m = length(pvalues)
+    if n_tests == nothing
+        n_tests = length(pvalues)
     end
 
-    # if the number of hypotheses is small, just set pi0 to 1
-    if length(pvalues) < 100 && pi0 == nothing
-        pi0 = 1.0
-    elseif pi0 != nothing
-        pi0 = pi0
+    # if the number of hypotheses is small, just set π₀ to 1
+    if length(pvalues) < 100 && π₀ == nothing
+        π₀ = 1.0
+    elseif π₀ != nothing
+        π₀ = π₀
     else
-        # evaluate pi0 for different lambdas
+        # evaluate π₀ for different lambdas
         lambdas = LinRange(0.0, 0.9, 91)
         # counts = [sum(pvalues .> i) for i in lambdas]
-        pi0 = sum(pvalues .> lambdas[end]) / (m * (1 - lambdas[end]))
+        π₀ = sum(pvalues .> lambdas[end]) / (n_tests * (1 - lambdas[end]))
 
 
         # not obvious to me why a cubic spline is needed here 
         # fit natural cubic spline
-        # println(pi0[end])
-        # pi0 = [counts[l] / (m*(1-lambdas[l])) for l in 1:length(lambdas)]
-        # tck = cubic_spline_interpolation(lambdas, pi0)
+        # println(π₀[end])
+        # π₀ = [counts[l] / (m*(1-lambdas[l])) for l in 1:length(lambdas)]
+        # tck = cubic_spline_interpolation(lambdas, π₀)
         # println(tck(lambdas[end]))
         # # println(tck(1.0))
-        # pi0 = tck(lambdas[end])
-        # println(pi0)
+        # π₀ = tck(lambdas[end])
+        # println(π₀)
 
-        if verbose
-            println(
-                "qvalues pi0=",
-                round(pi0; digits = 3),
-                ", estimated proportion of null features ",
-            )
-        end
-
-        if pi0 > 1
-            pi0 = 1.0
-
-            if verbose
-                println(
-                    "got pi0 > 1 (",
-                    round(pi0; digits = 3),
-                    ") while estimating qvalues, setting it to 1",
-                )
-            end
-
+        if π₀ > 1
+            π₀ = 1.0
         end
     end
 
-    @assert pi0 >= 0 && pi0 <= 1 "pi0 is not between 0 and 1: $pi0"
+    @assert π₀ >= 0 && π₀ <= 1 "π₀ is not between 0 and 1: $π₀"
 
     p_ordered = sortperm(pvalues)
     pvalues = pvalues[p_ordered]
-    qv = pi0 * m / length(pvalues) .* pvalues
-    qv[end] = min(qv[end], 1.0)
+    qvalues = π₀ * n_tests / length(pvalues) .* pvalues
+    qvalues[end] = min(qvalues[end], 1.0)
 
     for i = (length(pvalues)-1):-1:1
-        qv[i] = min(pi0 * m * pvalues[i] / (i), qv[i+1])
+        qvalues[i] = min(π₀ * n_tests * pvalues[i] / (i), qvalues[i+1])
     end
 
     # reorder qvalues
-    qv_temp = copy(qv)
-    qv = zero(qv)
-    qv[p_ordered] = qv_temp
+    qv_temp = copy(qvalues)
+    qvalues = zero(qvalues)
+    qvalues[p_ordered] = qv_temp
 
-    return qv, pi0
+    return qvalues, π₀
 end
 
 """
-Get true positive, false discovery and false positive rates
-:param qvalues: qvalue G X G matrix where G=number of genes
-:param adjMatrix_true: GXG binary adjacency matrix of true gene pairs
-:param alpha_values: one dimensional vector for threshold values
-:return: TPR, FDR, FPR vector of same size as alpha_values
+Get true positive, false positive and false discovery rates
+
+# Arguments
+
+- `qvalues`: q-value matrix (n_genes X n_genes)
+
+- `adj_matrix_true`: binary adjacency matrix of true gene pairs (n_genes X n_genes)
+
+- `α_values`: one dimensional vector for threshold values
+
+# Returns
+
+- `true_positive_rate`:
+
+- `false_positive_rate`:
+
+- `false_discovery_rate`:
 """
-function get_metrics_for_different_qvalue_thresholds(qvalues, adjMatrix_true, alpha_values)
+function get_metrics_for_different_qvalue_thresholds(qvalues, adj_matrix_true, α_values)
 
-    # FDR and TPR for different thresholds
-    G = size(adjMatrix_true)[1]
+    # false_discovery_rate and true_positive_rate for different thresholds
+    n_genes = first(size(adj_matrix_true))
 
-    TPR, FDR, FPR = zeros(length(alpha_values)),
-    zeros(length(alpha_values)),
-    zeros(length(alpha_values))
+    true_positive_rate = zeros(length(α_values))
+    false_positive_rate = zeros(length(α_values))
+    false_discovery_rate = zeros(length(α_values))
 
-    for (iaT, aT) in enumerate(alpha_values)
-        adjMatrixBootstrapQvalue = zeros(G, G)
-        adjMatrixBootstrapQvalue[qvalues.<aT] .= 1
+    for (α_index, α) in enumerate(α_values)
+        adj_matrix_qvalue = zeros(n_genes, n_genes)
+        adj_matrix_qvalue[qvalues.<α] .= 1
 
-        # println(adjMatrixBootstrapQvalue)
-
-        TPR[iaT], FPR[iaT], FDR[iaT], _, _, _, _ =
-            calculate_error_rates(Bool.(adjMatrixBootstrapQvalue), adjMatrix_true)
+        # calculate error rates on upper triangle only using `vec_triu_loop` to avoid diagonal and duplicating pairs
+        true_positive_rate[α_index],
+        false_positive_rate[α_index],
+        false_discovery_rate[α_index],
+        _,
+        _,
+        _,
+        _ = calculate_error_rates(vec_triu_loop(Bool.(adj_matrix_qvalue)), vec_triu_loop(adj_matrix_true))
     end
-    return TPR, FPR, FDR
+    return true_positive_rate, false_positive_rate, false_discovery_rate
 end
 
-function calculate_error_rates(adjMatrixEstimated, adjMatrixTrue)
+"""
+# Arguments
 
-    TP = sum(adjMatrixEstimated .& adjMatrixTrue)  # true positive
-    TN = sum(.!(adjMatrixEstimated) .& .!(adjMatrixTrue))
-    FP = sum(adjMatrixEstimated .& .!(adjMatrixTrue))  # false positive
-    FN = sum(.!(adjMatrixEstimated) .& adjMatrixTrue)
-    # True positive rate -TP divided by number of true oscillating pairs
-    TPR = TP / sum(adjMatrixTrue)
-    # False discovery rate -FP divided by number of gene pairs reported
-    FPR = FP / (FP + TN)
+-
 
-    if (sum(adjMatrixEstimated) == 0)
-        # No co-osc genes found - so FDR is 0
-        FDR = 0.0
-        FPR = 0.0
+# Returns
+
+-
+"""
+function calculate_error_rates(adj_matrix_estimate, adj_matrix_true)
+
+    true_positive = sum(adj_matrix_estimate .& adj_matrix_true)
+    true_negative = sum(.!(adj_matrix_estimate) .& .!(adj_matrix_true))
+    false_positive = sum(adj_matrix_estimate .& .!(adj_matrix_true))
+    false_negative = sum(.!(adj_matrix_estimate) .& adj_matrix_true)
+
+    true_positive_rate = true_positive / sum(adj_matrix_true)
+    false_positive_rate = false_positive / (false_positive + true_negative)
+
+    if sum(adj_matrix_estimate) == 0
+        false_discovery_rate = 0.0
+        false_positive_rate = 0.0
     else
-        FDR = FP / sum(adjMatrixEstimated)
+        false_discovery_rate = false_positive / sum(adj_matrix_estimate)
     end
 
-    @assert !any(isnan, TPR)#np.all(~np.isnan(TPR))
-    @assert !any(isnan, FDR)#np.all(~np.isnan(FDR))
+    @assert !any(isnan, true_positive_rate)
+    @assert !any(isnan, false_discovery_rate)
 
-    return TPR, FPR, FDR, TP, TN, FP, FN
+    return true_positive_rate,
+    false_positive_rate,
+    false_discovery_rate,
+    true_positive,
+    true_negative,
+    false_positive,
+    false_negative
 
 end
