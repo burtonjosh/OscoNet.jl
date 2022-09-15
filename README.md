@@ -15,13 +15,13 @@ $ julia
 ```
 
 Enter the Pkg REPL by typing `]` from the Julia REPL.
-```julia
+```
 julia> ]
 ```
 
 To install OscoNet, type the following into the Pkg REPL
 
-```julia
+```
 (@v1.6) pkg> add "https://github.com/burtonjosh/OscoNet.jl.git"
 ```
 
@@ -29,7 +29,7 @@ To exit the Pkg REPL either press backspace or ^C (CTRL+C).
 
 You can now start using the OscoNet package,
 
-```julia
+```
 julia> using OscoNet
 ```
 
@@ -38,17 +38,15 @@ julia> using OscoNet
 Basic usage of the package:
 
 ```julia
-julia> using OscoNet
+using OscoNet
+data, _, _ = simulate_data();
+n_permutations = 100;
 
-julia> data, _, _ = simulate_data();
+adjacency_matrix, _, cost = bootstrap_hypothesis_test(data, n_permutations);
 
-julia> n_permutations = 100;
+gene_names = ["gene_$i" for i = 1:20];
 
-julia> adjacency_matrix, _, cost = bootstrap_hypothesis_test(data, n_permutations);
-
-julia> gene_names = ["gene_$i" for i = 1:20];
-
-julia> edge_network = create_edge_network(adjacency_matrix, 1 ./ cost, gene_names)
+edge_network = create_edge_network(adjacency_matrix, 1 ./ cost, gene_names)
 ```
 
 For more details and examples, refer to the package [documentation](https://burtonjosh.github.io/OscoNet.jl).
