@@ -1,7 +1,6 @@
 using OscoNet
 
 @testset "Simulate data" begin
-
     data, Ψ_g, ω = simulate_data()
 
     @test size(data) == (20, 1000)

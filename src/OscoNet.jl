@@ -1,6 +1,9 @@
 module OscoNet
 
-using DataFrames, FLoops, LinearAlgebra, ManifoldLearning, Optim, Random, StatsBase
+using DataFrames, FLoops, LinearAlgebra, ManifoldLearning, Optim, StatsBase
+
+using Random
+import Random: GLOBAL_RNG
 
 include("oscope.jl")
 include("bootstrap.jl")

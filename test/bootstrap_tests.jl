@@ -1,30 +1,28 @@
-using OscoNet, Random, LinearAlgebra
+using OscoNet, Random, LinearAlgebra, StableRNGs
 
 @testset "Hypothesis test" begin
-    Random.seed!(1234)
+    rng = StableRNG(123)
     n_permutations = 100
 
-    data, _, _ = simulate_data()
+    data, _, _ = simulate_data(rng)
 
-    adjacency_matrix, qvalues, cost = bootstrap_hypothesis_test(data, n_permutations)
+    adjacency_matrix, qvalues, cost = bootstrap_hypothesis_test(rng, data, n_permutations)
 
     @test size(adjacency_matrix) == (20, 20)
     @test size(qvalues) == (20, 20)
     @test size(cost) == (20, 20)
 
-    @test isapprox(sum(adjacency_matrix), 90; atol=3)
+    @test sum(adjacency_matrix) == 94
 end
 
 @testset "Ψ for each gene pair" begin
-    Random.seed!(1234)
-    n_permutations = 100
-
-    data, _, _ = simulate_data()
+    rng = StableRNG(123)
+    data, _, _ = simulate_data(rng)
 
     Ψ, cost = OscoNet.find_best_psi_for_each_gene_pair(data)
 
-    @test sum(OscoNet.vec_triu_loop(Ψ)) ≈ 300.298652123
-    @test sum(OscoNet.vec_triu_loop(cost)) ≈ 456501.608012
+    @test sum(OscoNet.vec_triu_loop(Ψ)) ≈ 302.04322717500526
+    @test sum(OscoNet.vec_triu_loop(cost)) ≈ 441848.65225983947
 end
 
 @testset "Permuted cost" begin

@@ -1,21 +1,20 @@
 using OscoNet, Random, StatsBase
 
 @testset "Pseudotime" begin
-    Random.seed!(1234)
+    rng = StableRNG(123)
     n_cells=100
-    data, _, _ = simulate_data(;n_cells=n_cells)
+    data, _, _ = simulate_data(rng; n_cells=n_cells)
 
     pseudotime, data_tsne_scaled = estimate_pseudotime_using_tsne(data)
 
     @test length(pseudotime) == n_cells
     @test size(data_tsne_scaled) == (2,n_cells)
     @test all(pseudotime .<= 1) && all(pseudotime .>= 0)
-
 end
 
 @testset "Data manipulation" begin
-    Random.seed!(1234)
-    data, _, _ = simulate_data()
+    rng = StableRNG(123)
+    data, _, _ = simulate_data(rng)
     
     scaled_data = OscoNet.scale_data(data)
     @test all(isapprox.(mean(scaled_data,dims=2), 0; atol=1e-15))
@@ -37,9 +36,9 @@ end
 end
 
 @testset "Metrics" begin
-    Random.seed!(1234)
+    rng = StableRNG(123)
     n_cells=100
-    data, _, _ = simulate_data(;n_cells=n_cells)
+    data, _, _ = simulate_data(rng; n_cells=n_cells)
 
     x = hcat(
         LinRange(0,1,100),

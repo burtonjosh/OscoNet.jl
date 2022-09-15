@@ -24,7 +24,8 @@ will be strong oscillators and 3 weak (double the noise)
 
 - `ω::Vector{<:AbstractFloat}`: Vector of angular speeds for each gene
 """
-function simulate_data(;
+function simulate_data(
+    rng::AbstractRNG;
     half_group::Int = 5,
     n_genes::Int = 20,
     n_cells::Int = 1000,
@@ -40,7 +41,7 @@ function simulate_data(;
 
     # two different orders
     t1 = LinRange(0, 2pi, n_cells)
-    t2 = shuffle(t1)
+    t2 = shuffle(rng, t1)
 
     data = fill(NaN, n_genes, n_cells)
 
@@ -56,16 +57,16 @@ function simulate_data(;
     white_noise_index = 2half_group + 1
 
     for i = 1:half_group  # strong oscillators
-        starting_Ψ = 2pi * rand()
+        starting_Ψ = 2pi * rand(rng)
         Ψ_g[i] = starting_Ψ
         ω[i] = 2
-        data[i, :] = sin.(2t1 .+ starting_Ψ) .+ σ_str * randn(n_cells)
+        data[i, :] = sin.(2t1 .+ starting_Ψ) .+ σ_str * randn(rng, n_cells)
     end
     for i = half_group+1:2half_group  # weak oscillators
-        starting_Ψ = 2pi * rand()
+        starting_Ψ = 2pi * rand(rng)
         Ψ_g[i] = starting_Ψ
         ω[i] = 2
-        data[i, :] = sin.(2t1 .+ starting_Ψ) .+ 2σ_str * randn(n_cells)
+        data[i, :] = sin.(2t1 .+ starting_Ψ) .+ 2σ_str * randn(rng, n_cells)
     end
 
     if n_groups >= 2
@@ -77,16 +78,16 @@ function simulate_data(;
         white_noise_index = 4half_group + 1
 
         for i = (2half_group+1):3half_group  # strong oscillators
-            starting_Ψ = 2pi * rand()
+            starting_Ψ = 2pi * rand(rng)
             Ψ_g[i] = starting_Ψ
             ω[i] = 3
-            data[i, :] = sin.(3t2 .+ starting_Ψ) .+ σ_str * randn(n_cells)
+            data[i, :] = sin.(3t2 .+ starting_Ψ) .+ σ_str * randn(rng, n_cells)
         end
         for i = (3half_group+1):4half_group  # weak oscillators
-            starting_Ψ = 2pi * rand()
+            starting_Ψ = 2pi * rand(rng)
             Ψ_g[i] = starting_Ψ
             ω[i] = 3
-            data[i, :] = sin.(3t2 .+ starting_Ψ) .+ 2σ_str * randn(n_cells)
+            data[i, :] = sin.(3t2 .+ starting_Ψ) .+ 2σ_str * randn(rng, n_cells)
         end
     end
 
@@ -100,16 +101,16 @@ function simulate_data(;
         white_noise_index = 6half_group + 1
 
         for i in (4half_group+1:5half_group)  # strong oscillators
-            starting_Ψ = 2pi * rand()
+            starting_Ψ = 2pi * rand(rng)
             Ψ_g[i] = starting_Ψ
             ω[i] = 6
-            data[i, :] = sin.(6t1 .+ starting_Ψ) .+ σ_str * randn(n_cells)
+            data[i, :] = sin.(6t1 .+ starting_Ψ) .+ σ_str * randn(rng, n_cells)
         end
         for i = (5half_group+1):6half_group  # weak oscillators
-            starting_Ψ = 2pi * rand()
+            starting_Ψ = 2pi * rand(rng)
             Ψ_g[i] = starting_Ψ
             ω[i] = 6
-            data[i, :] = sin.(6t1 .+ starting_Ψ) .+ 2σ_str * randn(n_cells)
+            data[i, :] = sin.(6t1 .+ starting_Ψ) .+ 2σ_str * randn(rng, n_cells)
         end
     end
 
@@ -118,10 +119,27 @@ function simulate_data(;
     for w = white_noise_index:n_genes  # use i index from above where it stopped
         Ψ_g[w] = NaN
         ω[w] = NaN
-        data[w, :] = maximum([3 / 2 * σ_str, 1]) * randn(n_cells)
+        data[w, :] = maximum([3 / 2 * σ_str, 1]) * randn(rng, n_cells)
     end
 
     return data, Ψ_g, ω
+end
+
+function simulate_data(;
+    half_group::Int = 5,
+    n_genes::Int = 20,
+    n_cells::Int = 1000,
+    noise_level::Int = 1,
+    n_groups::Int = 1,
+)
+    simulate_data(
+    GLOBAL_RNG;
+    half_group,
+    n_genes,
+    n_cells,
+    noise_level,
+    n_groups,
+    )
 end
 
 

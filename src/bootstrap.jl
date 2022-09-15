@@ -18,9 +18,9 @@ identify co-oscillating gene pairs.
 
 - `cost::`:
 """
-function bootstrap_hypothesis_test(data, n_permutations::Int; α = 0.001::AbstractFloat)
+function bootstrap_hypothesis_test(rng::AbstractRNG, data, n_permutations::Int; α = 0.001::AbstractFloat)
     _, cost = find_best_psi_for_each_gene_pair(data)
-    cost_permuted = get_permuted_cost(data, n_permutations)
+    cost_permuted = get_permuted_cost(rng, data, n_permutations)
 
     pvalues = get_pvalues(cost, cost_permuted)
     pvalue_flatten = vec_triu_loop(pvalues)
@@ -32,6 +32,12 @@ function bootstrap_hypothesis_test(data, n_permutations::Int; α = 0.001::Abstra
 
     return adjacency_matrix, qvalues, cost
 end
+
+bootstrap_hypothesis_test(
+    data,
+    n_permutations::Int;
+    α = 0.001::AbstractFloat
+) = bootstrap_hypothesis_test(GLOBAL_RNG, data, n_permutations; α)
 
 """
 Compute the minimum distance between gene `x` and gene `y`, for
@@ -65,8 +71,9 @@ function find_best_psi_for_each_gene_pair(data)
     return Ψ, cost
 end
 
-
 """
+get_permuted_cost([rng::AbstractRNG,] data, n_permutations::Int)
+
 Compute the minimum distance between gene `x` and the `n`-th random permutation of gene `y`, for
 a set of genes `x, y ∈ X`. 
 
@@ -81,6 +88,25 @@ a set of genes `x, y ∈ X`.
 - `cost_permuted::Array{Float64}`: Array of size (n_genes x n_genes x n_permutations), whose `(x,y,n)`-th element
 represents the minimum distance between gene `x` and the `n`-th random permutation of gene `y`.
 """
+function get_permuted_cost(rng::AbstractRNG, data, n_permutations::Int)
+    @assert n_permutations > 1 "Number of bootstrap permutations must be greater than 1"
+    cost_permuted =
+        Array{Float64}(undef, first(size(data)), first(size(data)), n_permutations)
+
+    @inbounds @views begin
+        for ix = 1:first(size(data))
+            for iy = (ix+1):first(size(data))
+                for permutation_index = 1:n_permutations
+                    cost_permuted[ix, iy, permutation_index] =
+                        first(find_minimum_distance(data[ix, :], shuffle(rng, data[iy, :])))
+                end
+            end
+        end
+    end
+
+    return cost_permuted
+end
+
 function get_permuted_cost(data, n_permutations::Int)
     @assert n_permutations > 1 "Number of bootstrap permutations must be greater than 1"
     cost_permuted =
