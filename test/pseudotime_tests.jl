@@ -1,4 +1,4 @@
-using OscoNet, Random, StatsBase
+using OscoNet, Random, StatsBase, StableRNGs
 
 @testset "Pseudotime" begin
     rng = StableRNG(123)
