@@ -14,29 +14,9 @@ Open the Julia REPL by typing the following in the command line:
 $ julia
 ```
 
-You should see something like this:
-
-```julia
-               _
-   _       _ _(_)_     |  Documentation: https://docs.julialang.org
-  (_)     | (_) (_)    |
-   _ _   _| |_  __ _   |  Type "?" for help, "]?" for Pkg help.
-  | | | | | | |/ _` |  |
-  | | |_| | | | (_| |  |  Version 1.6.2 (2021-07-14)
- _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
-|__/                   |
-
-julia> 
-```
-
 Enter the Pkg REPL by typing `]` from the Julia REPL.
 ```julia
 julia> ]
-```
-
-You should now see something like this:
-```julia
-(@v1.6) pkg>
 ```
 
 To install OscoNet, type the following into the Pkg REPL
